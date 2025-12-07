@@ -1,2 +1,4 @@
 *.db
 *.pdf
+*.out
+*.html

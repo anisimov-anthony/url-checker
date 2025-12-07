@@ -197,6 +197,10 @@ func (urlchecker *URLChecker) CheckLinks(ctx context.Context, links []string) (m
 		return models.CheckResponse{}, fmt.Errorf("no links provided")
 	}
 
+	if urlchecker.IsShutdown() {
+		return models.CheckResponse{}, fmt.Errorf("service is shutting down")
+	}
+
 	batchNum, err := urlchecker.getNextID(ctx)
 	if err != nil {
 		return models.CheckResponse{}, fmt.Errorf("failed to get next batch ID: %w", err)
