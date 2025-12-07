@@ -225,25 +225,6 @@ func (urlchecker *URLChecker) CheckLinks(ctx context.Context, links []string) (m
 	return response, nil
 }
 
-func (urlchecker *URLChecker) GetBatchStatus(ctx context.Context, id int) (models.CheckResponse, error) {
-	links, err := urlchecker.db.GetLinksByBatchNum(ctx, id)
-	if err != nil {
-		return models.CheckResponse{}, fmt.Errorf("batch not found")
-	}
-
-	resultLinks := make(map[string]string)
-	for _, link := range links {
-		resultLinks[link.URL] = string(link.Status)
-	}
-
-	response := models.CheckResponse{
-		Links:    resultLinks,
-		LinksNum: id,
-	}
-
-	return response, nil
-}
-
 func (urlchecker *URLChecker) GeneratePDFReportAsync(ctx context.Context, batchIDs []int) ([]byte, error) {
 	if urlchecker.IsShutdown() {
 		return nil, fmt.Errorf("service is shutting down")

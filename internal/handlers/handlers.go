@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"url-checker/internal/models"
 	"url-checker/internal/service"
@@ -46,35 +45,6 @@ func (h *Handler) CheckLinksHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err.Error() == "no links provided" {
 			http.Error(w, "No links provided", http.StatusBadRequest)
-		} else {
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
-func (h *Handler) GetBatchStatusHandler(w http.ResponseWriter, r *http.Request) {
-	if h.service.IsShutdown() {
-		http.Error(w, "Service is shutting down", http.StatusServiceUnavailable)
-		return
-	}
-
-	vars := mux.Vars(r)
-	idStr := vars["id"]
-
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		http.Error(w, "Invalid batch ID", http.StatusBadRequest)
-		return
-	}
-
-	response, err := h.service.GetBatchStatus(r.Context(), id)
-	if err != nil {
-		if err.Error() == "batch not found" {
-			http.Error(w, "Batch not found", http.StatusNotFound)
 		} else {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
@@ -127,7 +97,6 @@ func (h *Handler) SetupRoutes() *mux.Router {
 	api := router.PathPrefix("/api").Subrouter()
 	api.HandleFunc("/check", h.CheckLinksHandler).Methods("POST")
 	api.HandleFunc("/report", h.ReportHandler).Methods("POST")
-	api.HandleFunc("/batch/{id}", h.GetBatchStatusHandler).Methods("GET")
 	api.HandleFunc("/health", h.HealthHandler).Methods("GET")
 
 	return router
