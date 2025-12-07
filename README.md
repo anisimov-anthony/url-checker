@@ -1,4 +1,4 @@
-![Coverage](coverage-badge.svg)
+![codecov](https://codecov.io/gh/anisimov-anthony/07-december-2025-url-checker/branch/master/graph/badge.svg)
 ![CI](https://github.com/anisimov-anthony/07-december-2025-url-checker/workflows/CI/badge.svg)
 
 # URL Checker Service

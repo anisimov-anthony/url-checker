@@ -45,13 +45,20 @@ jobs:
         value: ${{ env.COVERAGE_PERCENT }}
         filename: coverage-badge.svg
         green: 80   # опционально: от какого % зелёный
-        yellow: 60 60  # опционально
+        yellow: 60  # опционально
 
     - name: Upload badge as artifact
       uses: actions/upload-artifact@v4
       with:
         name: coverage-badge
         path: coverage-badge.svg
+        
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.out
+        flags: unittests
+        name: codecov-umbrella
     
     - name: Build application
       run: |
