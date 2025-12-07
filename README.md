@@ -37,19 +37,6 @@
 
 **Response:** PDF файл с отчетом
 
-### GET /api/batch/{id}
-Получение статуса конкретного пакета
-
-**Response:**
-```json
-{
-    "links": {
-        "google.com": "available",
-        "malformedlink.gg": "not available"
-    },
-    "links_num": 1
-}
-```
 
 ### GET /api/health
 Проверка здоровья сервиса
