@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -62,10 +63,10 @@ func (d *Database) createTables() error {
 	return nil
 }
 
-func (d *Database) CreateBatch(linksNum int, status models.BatchStatus, createdAt time.Time) error {
+func (d *Database) CreateBatch(ctx context.Context, linksNum int, status models.BatchStatus, createdAt time.Time) error {
 	sql := `INSERT INTO batches (links_num, status, created_at) VALUES (?, ?, ?)`
 
-	_, err := d.db.Exec(sql, linksNum, status, createdAt)
+	_, err := d.db.ExecContext(ctx, sql, linksNum, status, createdAt)
 	if err != nil {
 		return fmt.Errorf("failed to create batch: %w", err)
 	}
@@ -73,10 +74,10 @@ func (d *Database) CreateBatch(linksNum int, status models.BatchStatus, createdA
 	return nil
 }
 
-func (d *Database) CreateLink(url string, status models.LinkStatus, batchNum int, time *time.Time) (int, error) {
+func (d *Database) CreateLink(ctx context.Context, url string, status models.LinkStatus, batchNum int, time *time.Time) (int, error) {
 	sql := `INSERT INTO links (url, status, batch_num, time) VALUES (?, ?, ?, ?)`
 
-	result, err := d.db.Exec(sql, url, status, batchNum, time)
+	result, err := d.db.ExecContext(ctx, sql, url, status, batchNum, time)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create link: %w", err)
 	}
@@ -89,10 +90,10 @@ func (d *Database) CreateLink(url string, status models.LinkStatus, batchNum int
 	return int(id), nil
 }
 
-func (d *Database) UpdateLinkStatus(id int, status models.LinkStatus, time *time.Time) error {
+func (d *Database) UpdateLinkStatus(ctx context.Context, id int, status models.LinkStatus, time *time.Time) error {
 	sql := `UPDATE links SET status = ?, time = ? WHERE id = ?`
 
-	_, err := d.db.Exec(sql, status, time, id)
+	_, err := d.db.ExecContext(ctx, sql, status, time, id)
 	if err != nil {
 		return fmt.Errorf("failed to update link status: %w", err)
 	}
@@ -100,10 +101,10 @@ func (d *Database) UpdateLinkStatus(id int, status models.LinkStatus, time *time
 	return nil
 }
 
-func (d *Database) UpdateBatchStatus(linksNum int, status models.BatchStatus) error {
+func (d *Database) UpdateBatchStatus(ctx context.Context, linksNum int, status models.BatchStatus) error {
 	sql := `UPDATE batches SET status = ? WHERE links_num = ?`
 
-	_, err := d.db.Exec(sql, status, linksNum)
+	_, err := d.db.ExecContext(ctx, sql, status, linksNum)
 	if err != nil {
 		return fmt.Errorf("failed to update batch status: %w", err)
 	}
@@ -111,10 +112,10 @@ func (d *Database) UpdateBatchStatus(linksNum int, status models.BatchStatus) er
 	return nil
 }
 
-func (d *Database) GetLinksByBatchNum(linksNum int) ([]*models.Link, error) {
+func (d *Database) GetLinksByBatchNum(ctx context.Context, linksNum int) ([]*models.Link, error) {
 	sql := `SELECT id, url, status, batch_num, time FROM links WHERE batch_num = ? ORDER BY id`
 
-	rows, err := d.db.Query(sql, linksNum)
+	rows, err := d.db.QueryContext(ctx, sql, linksNum)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query links: %w", err)
 	}
@@ -137,11 +138,11 @@ func (d *Database) GetLinksByBatchNum(linksNum int) ([]*models.Link, error) {
 	return links, nil
 }
 
-func (d *Database) GetBatch(linksNum int) (*models.Batch, error) {
+func (d *Database) GetBatch(ctx context.Context, linksNum int) (*models.Batch, error) {
 	sql := `SELECT links_num, status, created_at FROM batches WHERE links_num = ?`
 
 	batch := &models.Batch{}
-	err := d.db.QueryRow(sql, linksNum).Scan(&batch.LinksNum, &batch.Status, &batch.CreatedAt)
+	err := d.db.QueryRowContext(ctx, sql, linksNum).Scan(&batch.LinksNum, &batch.Status, &batch.CreatedAt)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
 			return nil, fmt.Errorf("batch not found")
@@ -152,10 +153,10 @@ func (d *Database) GetBatch(linksNum int) (*models.Batch, error) {
 	return batch, nil
 }
 
-func (d *Database) GetAllBatches() ([]*models.Batch, error) {
+func (d *Database) GetAllBatches(ctx context.Context) ([]*models.Batch, error) {
 	sql := `SELECT links_num, status, created_at FROM batches ORDER BY links_num`
 
-	rows, err := d.db.Query(sql)
+	rows, err := d.db.QueryContext(ctx, sql)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query batches: %w", err)
 	}
@@ -178,11 +179,11 @@ func (d *Database) GetAllBatches() ([]*models.Batch, error) {
 	return batches, nil
 }
 
-func (d *Database) GetMaxBatchNum() (int, error) {
+func (d *Database) GetMaxBatchNum(ctx context.Context) (int, error) {
 	sql := `SELECT COALESCE(MAX(links_num), 0) FROM batches`
 
 	var maxID int
-	err := d.db.QueryRow(sql).Scan(&maxID)
+	err := d.db.QueryRowContext(ctx, sql).Scan(&maxID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get max batch num: %w", err)
 	}
@@ -190,7 +191,7 @@ func (d *Database) GetMaxBatchNum() (int, error) {
 	return maxID, nil
 }
 
-func (d *Database) GetBatchesByIDs(batchIDs []int) ([]*models.Batch, []*models.Link, error) {
+func (d *Database) GetBatchesByIDs(ctx context.Context, batchIDs []int) ([]*models.Batch, []*models.Link, error) {
 	if len(batchIDs) == 0 {
 		return nil, nil, fmt.Errorf("no batch IDs provided")
 	}
@@ -206,7 +207,7 @@ func (d *Database) GetBatchesByIDs(batchIDs []int) ([]*models.Batch, []*models.L
 	}
 	batchSQL += ") ORDER BY links_num"
 
-	batchRows, err := d.db.Query(batchSQL, args...)
+	batchRows, err := d.db.QueryContext(ctx, batchSQL, args...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to query batches: %w", err)
 	}
@@ -237,7 +238,7 @@ func (d *Database) GetBatchesByIDs(batchIDs []int) ([]*models.Batch, []*models.L
 	}
 	linkSQL += ") ORDER BY batch_num, id"
 
-	linkRows, err := d.db.Query(linkSQL, linkArgs...)
+	linkRows, err := d.db.QueryContext(ctx, linkSQL, linkArgs...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to query links: %w", err)
 	}

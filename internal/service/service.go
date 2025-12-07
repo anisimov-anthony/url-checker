@@ -41,8 +41,8 @@ func NewURLChecker(db *database.Database, logger *logrus.Logger, httpClient *htt
 	}
 }
 
-func (urlchecker *URLChecker) LoadBatches() error {
-	maxID, err := urlchecker.db.GetMaxBatchNum()
+func (urlchecker *URLChecker) LoadBatches(ctx context.Context) error {
+	maxID, err := urlchecker.db.GetMaxBatchNum(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get max batch num: %w", err)
 	}
@@ -63,8 +63,8 @@ func (urlchecker *URLChecker) SetShutdown(shutdown bool) {
 	urlchecker.shutdown = shutdown
 }
 
-func (urlchecker *URLChecker) getNextID() (int, error) {
-	maxID, err := urlchecker.db.GetMaxBatchNum()
+func (urlchecker *URLChecker) getNextID(ctx context.Context) (int, error) {
+	maxID, err := urlchecker.db.GetMaxBatchNum(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get max batch num: %w", err)
 	}
@@ -105,10 +105,10 @@ func (urlchecker *URLChecker) checkURLAvailability(rawURL string) models.LinkSta
 	return models.StatusNotAvailable
 }
 
-func (urlchecker *URLChecker) processLinks(links []string, batchNum int) ([]*models.Link, error) {
+func (urlchecker *URLChecker) processLinks(ctx context.Context, links []string, batchNum int) ([]*models.Link, error) {
 	var linkIDs []int
 	for _, link := range links {
-		linkID, err := urlchecker.db.CreateLink(link, models.StatusProcessing, batchNum, nil)
+		linkID, err := urlchecker.db.CreateLink(ctx, link, models.StatusProcessing, batchNum, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create link for %s: %w", link, err)
 		}
@@ -123,15 +123,28 @@ func (urlchecker *URLChecker) processLinks(links []string, batchNum int) ([]*mod
 		wg.Add(1)
 		go func(idx int, l string, linkID int) {
 			defer wg.Done()
-			status := urlchecker.checkURLAvailability(l)
 
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			status := urlchecker.checkURLAvailability(l)
 			processedAt := time.Now()
 
 			var time *time.Time
 			if status == models.StatusAvailable || status == models.StatusNotAvailable {
 				time = &processedAt
 			}
-			if err := urlchecker.db.UpdateLinkStatus(linkID, status, time); err != nil {
+
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			if err := urlchecker.db.UpdateLinkStatus(ctx, linkID, status, time); err != nil {
 				urlchecker.logger.Errorf("Failed to update link status for %s: %v", l, err)
 			}
 
@@ -149,7 +162,7 @@ func (urlchecker *URLChecker) processLinks(links []string, batchNum int) ([]*mod
 
 	wg.Wait()
 
-	if err := urlchecker.db.UpdateBatchStatus(batchNum, models.BatchStatusCompleted); err != nil {
+	if err := urlchecker.db.UpdateBatchStatus(ctx, batchNum, models.BatchStatusCompleted); err != nil {
 		urlchecker.logger.Errorf("Failed to update batch status: %v", err)
 	}
 
@@ -164,14 +177,14 @@ func (urlchecker *URLChecker) StartWorker(ctx context.Context) {
 			return
 		case task := <-urlchecker.pendingPDFTasks:
 			if task != nil {
-				urlchecker.processPDFTask(task)
+				urlchecker.processPDFTask(ctx, task)
 			}
 		}
 	}
 }
 
-func (urlchecker *URLChecker) processPDFTask(task *PDFTask) {
-	pdfData, err := urlchecker.GeneratePDFReport(task.BatchIDs)
+func (urlchecker *URLChecker) processPDFTask(ctx context.Context, task *PDFTask) {
+	pdfData, err := urlchecker.GeneratePDFReport(ctx, task.BatchIDs)
 	if err != nil {
 		task.Error <- err
 	} else {
@@ -179,23 +192,23 @@ func (urlchecker *URLChecker) processPDFTask(task *PDFTask) {
 	}
 }
 
-func (urlchecker *URLChecker) CheckLinks(links []string) (models.CheckResponse, error) {
+func (urlchecker *URLChecker) CheckLinks(ctx context.Context, links []string) (models.CheckResponse, error) {
 	if len(links) == 0 {
 		return models.CheckResponse{}, fmt.Errorf("no links provided")
 	}
 
-	batchNum, err := urlchecker.getNextID()
+	batchNum, err := urlchecker.getNextID(ctx)
 	if err != nil {
 		return models.CheckResponse{}, fmt.Errorf("failed to get next batch ID: %w", err)
 	}
 
-	if err := urlchecker.db.CreateBatch(batchNum, models.BatchStatusProcessing, time.Now()); err != nil {
+	if err := urlchecker.db.CreateBatch(ctx, batchNum, models.BatchStatusProcessing, time.Now()); err != nil {
 		return models.CheckResponse{}, fmt.Errorf("failed to create batch: %w", err)
 	}
 
-	processedLinks, err := urlchecker.processLinks(links, batchNum)
+	processedLinks, err := urlchecker.processLinks(ctx, links, batchNum)
 	if err != nil {
-		urlchecker.db.UpdateBatchStatus(batchNum, models.BatchStatusFailed)
+		urlchecker.db.UpdateBatchStatus(ctx, batchNum, models.BatchStatusFailed)
 		return models.CheckResponse{}, fmt.Errorf("failed to process links: %w", err)
 	}
 
@@ -212,8 +225,8 @@ func (urlchecker *URLChecker) CheckLinks(links []string) (models.CheckResponse, 
 	return response, nil
 }
 
-func (urlchecker *URLChecker) GetBatchStatus(id int) (models.CheckResponse, error) {
-	links, err := urlchecker.db.GetLinksByBatchNum(id)
+func (urlchecker *URLChecker) GetBatchStatus(ctx context.Context, id int) (models.CheckResponse, error) {
+	links, err := urlchecker.db.GetLinksByBatchNum(ctx, id)
 	if err != nil {
 		return models.CheckResponse{}, fmt.Errorf("batch not found")
 	}
@@ -231,7 +244,7 @@ func (urlchecker *URLChecker) GetBatchStatus(id int) (models.CheckResponse, erro
 	return response, nil
 }
 
-func (urlchecker *URLChecker) GeneratePDFReportAsync(batchIDs []int) ([]byte, error) {
+func (urlchecker *URLChecker) GeneratePDFReportAsync(ctx context.Context, batchIDs []int) ([]byte, error) {
 	if urlchecker.IsShutdown() {
 		return nil, fmt.Errorf("service is shutting down")
 	}
@@ -253,15 +266,17 @@ func (urlchecker *URLChecker) GeneratePDFReportAsync(batchIDs []int) ([]byte, er
 			return nil, err
 		case <-time.After(30 * time.Second):
 			return nil, fmt.Errorf("PDF generation timeout")
+		case <-ctx.Done():
+			return nil, ctx.Err()
 		}
 	default:
 		urlchecker.logger.Warnf("PDF queue full, generating report synchronously for batches %v", batchIDs)
-		return urlchecker.GeneratePDFReport(batchIDs)
+		return urlchecker.GeneratePDFReport(ctx, batchIDs)
 	}
 }
 
-func (urlchecker *URLChecker) GeneratePDFReport(batchIDs []int) ([]byte, error) {
-	batches, links, err := urlchecker.db.GetBatchesByIDs(batchIDs)
+func (urlchecker *URLChecker) GeneratePDFReport(ctx context.Context, batchIDs []int) ([]byte, error) {
+	batches, links, err := urlchecker.db.GetBatchesByIDs(ctx, batchIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get batches data: %w", err)
 	}
@@ -319,8 +334,8 @@ func (urlchecker *URLChecker) GeneratePDFReport(batchIDs []int) ([]byte, error) 
 	return buf.Bytes(), nil
 }
 
-func (urlchecker *URLChecker) GetHealthStatus() map[string]any {
-	batches, err := urlchecker.db.GetAllBatches()
+func (urlchecker *URLChecker) GetHealthStatus(ctx context.Context) map[string]any {
+	batches, err := urlchecker.db.GetAllBatches(ctx)
 	batchCount := 0
 	if err == nil {
 		batchCount = len(batches)

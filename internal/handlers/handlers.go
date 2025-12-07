@@ -42,7 +42,7 @@ func (h *Handler) CheckLinksHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := h.service.CheckLinks(req.Links)
+	response, err := h.service.CheckLinks(r.Context(), req.Links)
 	if err != nil {
 		if err.Error() == "no links provided" {
 			http.Error(w, "No links provided", http.StatusBadRequest)
@@ -71,7 +71,7 @@ func (h *Handler) GetBatchStatusHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response, err := h.service.GetBatchStatus(id)
+	response, err := h.service.GetBatchStatus(r.Context(), id)
 	if err != nil {
 		if err.Error() == "batch not found" {
 			http.Error(w, "Batch not found", http.StatusNotFound)
@@ -102,7 +102,7 @@ func (h *Handler) ReportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pdfData, err := h.service.GeneratePDFReportAsync(req.LinksList)
+	pdfData, err := h.service.GeneratePDFReportAsync(r.Context(), req.LinksList)
 	if err != nil {
 		h.logger.Errorf("Failed to generate PDF: %v", err)
 		http.Error(w, "Failed to generate report", http.StatusInternalServerError)
@@ -115,7 +115,7 @@ func (h *Handler) ReportHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HealthHandler(w http.ResponseWriter, r *http.Request) {
-	status := h.service.GetHealthStatus()
+	status := h.service.GetHealthStatus(r.Context())
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)

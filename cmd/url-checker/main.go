@@ -35,7 +35,7 @@ func main() {
 	// URLChecker
 	checker := service.NewURLChecker(db, logger, httpClient)
 
-	if err := checker.LoadBatches(); err != nil {
+	if err := checker.LoadBatches(context.Background()); err != nil {
 		logger.Fatalf("Failed to load batches from database: %v", err)
 	}
 
@@ -44,6 +44,7 @@ func main() {
 
 	go checker.StartWorker(ctx)
 
+	// Routers
 	handler := handlers.NewHandler(checker, logger)
 	router := handler.SetupRoutes()
 
@@ -52,6 +53,7 @@ func main() {
 		Handler: router,
 	}
 
+	// Start
 	go func() {
 		logger.Info("Starting server on :8080")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -59,10 +61,11 @@ func main() {
 		}
 	}()
 
-	gracefulShutdown(server, checker, ctx, cancel, logger)
+	// Shutdown
+	gracefulShutdown(server, checker, 30*time.Second, logger)
 }
 
-func gracefulShutdown(server *http.Server, checker *service.URLChecker, ctx context.Context, cancel context.CancelFunc, logger *logrus.Logger) {
+func gracefulShutdown(server *http.Server, checker *service.URLChecker, shutdownTimeout time.Duration, logger *logrus.Logger) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -71,14 +74,12 @@ func gracefulShutdown(server *http.Server, checker *service.URLChecker, ctx cont
 
 	checker.SetShutdown(true)
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer shutdownCancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		logger.Errorf("Server shutdown error: %v", err)
 	}
-
-	cancel()
 
 	logger.Info("Graceful shutdown completed")
 }
