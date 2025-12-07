@@ -1,6 +1,3 @@
-![codecov](https://codecov.io/gh/anisimov-anthony/07-december-2025-url-checker/branch/master/graph/badge.svg)
-![CI](https://github.com/anisimov-anthony/07-december-2025-url-checker/workflows/CI/badge.svg)
-
 # URL Checker Service
 
 Веб-сервер для проверки доступности интернет-ресурсов с генерацией PDF отчетов
@@ -92,10 +89,15 @@ curl http://localhost:8080/api/health
 ```
 
 
-
 ## Тестирование
 
 ### Запуск тестов
 ```bash
 ./test-coverage.sh
 ```
+
+### Покрытие кода
+Текущее покрытие: **85.9%**
+- **Database**: 82.4%
+- **Service**: 89.3%  
+- **Handlers**: 84.8%
