@@ -29,18 +29,25 @@ jobs:
     - name: Download dependencies
       run: go mod download
     
-    - name: Run tests with coverage
+    - name: Run tests & calculate total coverage
       run: |
-        go test -coverprofile=coverage.out ./internal/...
+        go test -covermode=atomic -coverprofile=coverage.out ./...
         go tool cover -func=coverage.out > coverage.txt
+        
+        # Вытаскиваем общий процент (строка с "total:")
+        TOTAL=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+        echo "Coverage: $TOTAL%"
+        echo "COVERAGE_PERCENT=$TOTAL" >> $GITHUB_ENV
 
     - name: Generate coverage badge
       uses: tj-actions/coverage-badge-go@v2
       with:
+        value: ${{ env.COVERAGE_PERCENT }}
         filename: coverage-badge.svg
-        # ← remove the "coverage:" line completely
+        green: 80   # опционально: от какого % зелёный
+        yellow: 60 60  # опционально
 
-    - name: Upload coverage badge as artifact (optional, to see it)
+    - name: Upload badge as artifact
       uses: actions/upload-artifact@v4
       with:
         name: coverage-badge
