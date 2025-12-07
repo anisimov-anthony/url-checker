@@ -33,19 +33,18 @@ jobs:
       run: |
         go test -coverprofile=coverage.out ./internal/...
         go tool cover -func=coverage.out > coverage.txt
-    
+
     - name: Generate coverage badge
       uses: tj-actions/coverage-badge-go@v2
       with:
         filename: coverage-badge.svg
-        coverage: coverage.txt
-    
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+        # ← remove the "coverage:" line completely
+
+    - name: Upload coverage badge as artifact (optional, to see it)
+      uses: actions/upload-artifact@v4
       with:
-        file: ./coverage.out
-        flags: unittests
-        name: codecov-umbrella
+        name: coverage-badge
+        path: coverage-badge.svg
     
     - name: Build application
       run: |
