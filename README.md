@@ -1,11 +1,11 @@
 # URL Checker Service
 
-Веб-сервер для проверки доступности интернет-ресурсов с генерацией PDF отчетов
+Web server for checking internet resource availability with PDF report generation
 
-## API Эндпоинты
+## API Endpoints
 
 ### POST /api/check
-Проверка доступности ссылок
+Check link availability
 
 **Request:**
 ```json
@@ -26,7 +26,7 @@
 ```
 
 ### POST /api/report
-Генерация PDF отчета по номерам пакетов
+Generate PDF report by batch numbers
 
 **Request:**
 ```json
@@ -35,11 +35,11 @@
 }
 ```
 
-**Response:** PDF файл с отчетом
+**Response:** PDF file with report
 
 
 ### GET /api/health
-Проверка здоровья сервиса
+Service health check
 
 **Response:**
 ```json
@@ -51,31 +51,31 @@
 }
 ```
 
-## Установка и запуск
+## Installation and Running
 
-### Требования
-- Go 1.21 или выше
+### Requirements
+- Go 1.21 or higher
 
-### Установка зависимостей
+### Install Dependencies
 ```bash
 go mod tidy
 ```
 
-### Запуск
+### Running
 ```bash
 go run main.go
 ```
 
-Сервис будет доступен на порту `8080`
+The service will be available on port `8080`
 
-### Проверка ссылок
+### Check Links
 ```bash
 curl -X POST http://localhost:8080/api/check \
   -H "Content-Type: application/json" \
   -d '{"links": ["google.com", "github.com", "nonexistent.example"]}'
 ```
 
-### Запрос отчета
+### Request Report
 ```bash
 curl -X POST http://localhost:8080/api/report \
   -H "Content-Type: application/json" \
@@ -83,25 +83,25 @@ curl -X POST http://localhost:8080/api/report \
   --output report.pdf
 ```
 
-### Проверка здоровья
+### Health Check
 ```bash
 curl http://localhost:8080/api/health
 ```
 
-## Тестирование
+## Testing
 
-### Запуск тестов
+### Run Tests
 ```bash
 ./test-coverage.sh
 ```
 
-### Покрытие кода
-Текущее покрытие: **85.9%**
+### Code Coverage
+Current coverage: **85.9%**
 - **Database**: 82.4%
 - **Service**: 89.3%  
 - **Handlers**: 84.8%
 
 
-## Лицензия
+## License
 
-Проект распространяется под [MIT License](LICENSE).
+This project is distributed under the [MIT License](LICENSE).
